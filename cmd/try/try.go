@@ -33,7 +33,7 @@ func New() *hnsw.HNSW[Node] {
 
 	zero := Node{ID: 0, Vector: make(vector.V32, 128)}
 
-	return hnsw.New[Node](surface, zero)
+	return hnsw.New[Node](surface, zero, hnsw.WithEfConstruction(400), hnsw.WithM(8))
 }
 
 func Create(h *hnsw.HNSW[Node], dataset string) error {

@@ -69,7 +69,7 @@ func draw(cmd *cobra.Command, args []string) error {
 }
 
 func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
-	nodes, links := cutLevel(h, level)
+	nodes, links, kinds := cutLevel(h, level)
 	if len(nodes) == 0 || len(links) == 0 {
 		return nil
 	}
@@ -80,12 +80,16 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 		SetSeriesOptions(
 			charts.WithGraphChartOpts(opts.GraphChart{
 				Layout:             "force",
+				Draggable:          true,
 				Roam:               true,
 				FocusNodeAdjacency: true,
 				Force: &opts.GraphForce{
-					Repulsion:  8000,
+					Repulsion:  200.0, //800.0,
+					Gravity:    0.05,  //0.01,
 					EdgeLength: 60.0,
 				},
+
+				Categories: kinds,
 			}),
 			charts.WithEmphasisOpts(opts.Emphasis{
 				Label: &opts.Label{
@@ -100,6 +104,8 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 		)
 
 	page := components.NewPage()
+	page.Height = "100%"
+	page.Width = "100%"
 	page.AddCharts(
 		graph,
 	)
@@ -111,18 +117,29 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 	return page.Render(io.MultiWriter(f))
 }
 
-func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.GraphLink) {
+func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.GraphLink, []*opts.GraphCategory) {
 	var visited bitset.BitSet
+	mrank := level
 	nodes := []opts.GraphNode{}
 	links := []opts.GraphLink{}
+	kinds := []*opts.GraphCategory{}
 
-	h.FMap(level, func(vector try.Node, vertex []try.Node) error {
+	h.FMap(level, func(rank int, vector try.Node, vertex []try.Node) error {
 		if visited.Test(uint(vector.ID)) {
 			return nil
 		}
 		visited.Set(uint(vector.ID))
 
-		nodes = append(nodes, opts.GraphNode{Name: strconv.Itoa(vector.ID)})
+		if rank > mrank {
+			mrank = rank
+		}
+
+		nodes = append(nodes,
+			opts.GraphNode{
+				Name:     strconv.Itoa(vector.ID),
+				Category: rank - level - 1,
+			},
+		)
 
 		for _, v := range vertex {
 			links = append(links,
@@ -136,5 +153,13 @@ func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.Graph
 		return nil
 	})
 
-	return nodes, links
+	for i := level; i <= mrank; i++ {
+		kinds = append(kinds,
+			&opts.GraphCategory{
+				Name: strconv.Itoa(i),
+			},
+		)
+	}
+
+	return nodes, links, kinds
 }

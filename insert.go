@@ -55,6 +55,9 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		for w.Len() > M {
 			w.Deq()
 		}
+		// if w.Len() > M {
+		// 	w = h.SelectNeighboursHeuristic(lvl, v, w, M)
+		// }
 
 		// Add Bi-Edges
 		node.Connections[lvl] = make([]Pointer, w.Len())
@@ -81,6 +84,9 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 				for edges.Len() > M {
 					edges.Deq()
 				}
+				// if edges.Len() > M {
+				// 	edges = h.SelectNeighboursHeuristic(lvl, h.heap[e].Vector, edges, M)
+				// }
 
 				conns := make([]Pointer, edges.Len())
 				for i := edges.Len() - 1; i >= 0; i-- {
@@ -98,3 +104,50 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		h.head = addr
 	}
 }
+
+/*
+func (h *HNSW[Vector]) SelectNeighboursHeuristic(level int, q Vector, c pq.Queue[Vertex], m int) pq.Queue[Vertex] {
+	var inW bitset.BitSet
+
+	w := pq.New(ordForwardVertex(""))
+
+	// extend candidates by their neighbors
+	for c.Len() > 0 {
+		e := c.Deq()
+		for _, eadj := range h.heap[e.Addr].Connections[level] {
+			if !inW.Test(uint(eadj)) {
+				inW.Set(uint(eadj))
+				w.Enq(Vertex{
+					Distance: h.surface.Distance(q, h.heap[eadj].Vector),
+					Addr:     eadj,
+				})
+			}
+		}
+	}
+
+	r := pq.New(ordForwardVertex(""))
+	d := pq.New(ordForwardVertex(""))
+
+	for w.Len() > 0 {
+		if r.Len() > m {
+			break
+		}
+
+		e := w.Deq()
+		if r.Len() == 0 || r.Head().Distance > e.Distance {
+			r.Enq(e)
+		} else {
+			d.Enq(e)
+		}
+	}
+
+	for d.Len() > 0 {
+		if r.Len() > m {
+			break
+		}
+		r.Enq(d.Deq())
+	}
+
+	return r
+}
+*/

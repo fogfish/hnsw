@@ -8,7 +8,7 @@
 
 package hnsw
 
-type FMap[Vector any] func(vector Vector, vertex []Vector) error
+type FMap[Vector any] func(level int, vector Vector, vertex []Vector) error
 
 func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
 	for _, node := range h.heap {
@@ -19,7 +19,7 @@ func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
 				vertex[i] = h.heap[addr].Vector
 			}
 
-			if err := fmap(node.Vector, vertex); err != nil {
+			if err := fmap(len(node.Connections), node.Vector, vertex); err != nil {
 				return err
 			}
 
