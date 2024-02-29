@@ -33,17 +33,23 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		Connections: make([][]Pointer, level+1),
 	}
 
+	h.Lock()
 	h.heap = append(h.heap, node)
 	addr := Pointer(len(h.heap) - 1)
+	h.Unlock()
 
 	// skip down through layers
+	h.RLock()
 	head := h.head
-	for lvl := h.level - 1; lvl > level; lvl-- {
+	hLevel := h.level
+	h.RUnlock()
+
+	for lvl := hLevel - 1; lvl > level; lvl-- {
 		head = h.skip(lvl, head, v)
 	}
 
 	//
-	for lvl := min(level, h.level-1); lvl >= 0; lvl-- {
+	for lvl := min(level, hLevel-1); lvl >= 0; lvl-- {
 		M := h.config.mLayerN
 		if lvl == 0 {
 			M = h.config.mLayer0
@@ -60,14 +66,23 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		// }
 
 		// Add Bi-Edges
-		node.Connections[lvl] = make([]Pointer, w.Len())
+		//h.Lock()
+		edges := make([]Pointer, w.Len())
+		// node.Connections[lvl] = make([]Pointer, w.Len())
 		for i := w.Len() - 1; i >= 0; i-- {
 			candidate := w.Deq()
-			node.Connections[lvl][i] = candidate.Addr
+			edges[i] = candidate.Addr
+			//node.Connections[lvl][i] = candidate.Addr
 
-			c := h.heap[candidate.Addr].Connections[lvl]
-			h.heap[candidate.Addr].Connections[lvl] = append(c, addr)
+			n := h.heap[candidate.Addr]
+			c := n.Connections[lvl]
+			h.Lock()
+			n.Connections[lvl] = append(c, addr)
+			h.Unlock()
 		}
+		h.Lock()
+		node.Connections[lvl] = edges
+		h.Unlock()
 
 		// Shrink Connection
 		for _, e := range node.Connections[lvl] {
@@ -93,16 +108,20 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 					conns[i] = edges.Deq().Addr
 				}
 
+				h.Lock()
 				h.heap[e].Connections[lvl] = conns
+				h.Unlock()
 			}
 		}
 
 	}
 
+	h.Lock()
 	if len(node.Connections) > h.level {
 		h.level = len(node.Connections)
 		h.head = addr
 	}
+	h.Unlock()
 }
 
 /*

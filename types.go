@@ -27,13 +27,23 @@ type Vertex struct {
 type ordForwardVertex string
 
 func (ordForwardVertex) Compare(a, b Vertex) int {
-	if a.Distance < b.Distance {
+	d := a.Distance - b.Distance
+
+	if d > 1e-5 {
+		return 1
+	}
+
+	if d < -1e-5 {
 		return -1
 	}
 
-	if a.Distance > b.Distance {
-		return 1
-	}
+	// if a.Distance < b.Distance {
+	// 	return -1
+	// }
+
+	// if a.Distance > b.Distance {
+	// 	return 1
+	// }
 
 	return 0
 }
@@ -42,13 +52,23 @@ func (ordForwardVertex) Compare(a, b Vertex) int {
 type ordReverseVertex string
 
 func (ordReverseVertex) Compare(a, b Vertex) int {
-	if a.Distance > b.Distance {
+	d := a.Distance - b.Distance
+
+	if d > 1e-5 {
 		return -1
 	}
 
-	if a.Distance < b.Distance {
+	if d < -1e-5 {
 		return 1
 	}
+
+	// if a.Distance > b.Distance {
+	// 	return -1
+	// }
+
+	// if a.Distance < b.Distance {
+	// 	return 1
+	// }
 
 	return 0
 }

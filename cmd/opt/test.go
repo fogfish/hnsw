@@ -9,9 +9,8 @@
 package opt
 
 import (
-	"fmt"
-
 	"github.com/fogfish/hnsw/cmd/try"
+	"github.com/fogfish/hnsw/kv"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +27,7 @@ var testCmd = &cobra.Command{
 	Use:   "test",
 	Short: "test the algorithm against dataset",
 	Long: `
-'hnsw graw' tests algorithms against datasets for approximate
+'hnsw draw' tests algorithms against datasets for approximate
 nearest neighbor search available at http://corpus-texmex.irisa.fr.
 
 It is required to obtain the dataset(s) into local environment:
@@ -41,13 +40,35 @@ It is required to obtain the dataset(s) into local environment:
 }
 
 func test(cmd *cobra.Command, args []string) error {
-	h := try.New()
+	h := try.New(128)
 
-	if err := try.Create(h, testDataset); err != nil {
-		return err
+	// f := fmt.Sprintf("%s/%s_base.fvecs", testDataset, filepath.Base(testDataset))
+
+	// if err := try.Insert(h, 8, f); err != nil {
+	// 	return err
+	// }
+
+	// if err := kv.Write(h, "test"); err != nil {
+	// 	panic(err)
+	// }
+
+	if err := kv.Read(h, "test"); err != nil {
+		panic(err)
 	}
 
-	fmt.Println()
+	// h.Dump()
 
+	// w, _ := os.Create("test.ivecs")
+	// e := fvecs.NewEncoder[uint32](w)
+
+	// h.Encode(e)
+
+	// h.FMap(3, func(level int, vector try.Node, vertex []try.Node) error {
+	// 	fmt.Printf("ID: %d => %d\n", vector.ID, len(vertex))
+
+	// 	return nil
+	// })
+
+	// return nil
 	return try.Test(h, testDataset)
 }

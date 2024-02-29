@@ -13,86 +13,96 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/fogfish/hnsw"
-	"github.com/fogfish/hnsw/internal/fvecs"
-	"github.com/fogfish/hnsw/vector"
+	"github.com/fogfish/hnsw/kv"
+	"github.com/kshard/fvecs"
+	"github.com/kshard/vector"
 )
 
-type Node struct {
-	ID     int
-	Vector vector.V32
+// New HNSW Index
+func New(vs int) *hnsw.HNSW[kv.Vector] {
+	return hnsw.New[kv.Vector](
+		kv.Surface(vector.Euclidean()),
+		kv.Zero(vs),
+		hnsw.WithEfConstruction(200),
+		hnsw.WithM(16),
+	)
 }
 
-func New() *hnsw.HNSW[Node] {
-	surface := vector.ContraMap[vector.V32, Node]{
-		Surface:   vector.Euclidean,
-		ContraMap: func(n Node) []float32 { return n.Vector },
-	}
+// Insert dataset
+func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
+	fmt.Printf("==> reading %s\n", dataset)
 
-	zero := Node{ID: 0, Vector: make(vector.V32, 128)}
-
-	return hnsw.New[Node](surface, zero, hnsw.WithEfConstruction(400), hnsw.WithM(8))
-}
-
-func Create(h *hnsw.HNSW[Node], dataset string) error {
-	fmt.Printf("==> reading dataset %s\n", dataset)
-
-	f, err := os.Open(fmt.Sprintf("%s/%s_base.fvecs", dataset, dataset))
+	f, err := os.Open(dataset)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
 	t := time.Now()
-	c := 1
+	c := uint32(1)
+
+	progress := func() {
+		os.Stderr.WriteString(
+			fmt.Sprintf("==> read %9d vectors in %s (%d ns/op)\n", c, time.Since(t), time.Since(t).Nanoseconds()/int64(c)),
+		)
+	}
+
 	d := fvecs.NewDecoder[float32](f)
+	w := h.Pipe(threads)
+
 	for {
 		vec, err := d.Read()
 		switch {
 		case err == nil:
-			h.Insert(Node{ID: c, Vector: vec})
+			w <- kv.Vector{Key: c, Vector: vec}
 		case errors.Is(err, io.EOF):
+			progress()
 			return nil
 		default:
 			return err
 		}
 
 		c++
-
-		if c%1000 == 0 {
-			fmt.Printf("==> read %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c)
+		if c%10000 == 0 {
+			progress()
 		}
 	}
 }
 
-func Query(h *hnsw.HNSW[Node], query []float32, truth []uint32) {
-	result := h.Search(Node{Vector: query}, 10, 100)
+// Query index comparing with ground truth
+func Query(h *hnsw.HNSW[kv.Vector], k int, query []float32, truth []uint32) (int, float64) {
+	result := h.Search(kv.Vector{Vector: query}, k, 100)
 
 	errors := 0
+	weight := 0.0
 	for i, vector := range result {
-		if truth[i] != uint32(vector.ID-1) {
+		if truth[i] != uint32(vector.Key-1) {
 			errors++
+			weight += float64(k) / float64(i+1)
 		}
 	}
 
 	if errors > 0 {
-		fmt.Printf("FAIL: %2d of  %2d (%.2f %%)\n", errors, len(result), 100.0*float32(errors)/float32(len(result)))
+		fmt.Printf("FAIL: %2d, %.2f (%.2f %%)\n", errors, weight, 100.0*float32(errors)/float32(len(result)))
 	}
+	return errors, weight
 }
 
-func Test(h *hnsw.HNSW[Node], dataset string) error {
+func Test(h *hnsw.HNSW[kv.Vector], dataset string) error {
 	fmt.Printf("==> testing dataset %s\n", dataset)
 
-	qf, err := os.Open(fmt.Sprintf("%s/%s_query.fvecs", dataset, dataset))
+	qf, err := os.Open(fmt.Sprintf("%s/%s_query.fvecs", dataset, filepath.Base(dataset)))
 	if err != nil {
 		return err
 	}
 
 	defer qf.Close()
 
-	tf, err := os.Open(fmt.Sprintf("%s/%s_groundtruth.ivecs", dataset, dataset))
+	tf, err := os.Open(fmt.Sprintf("%s/%s_groundtruth.ivecs", dataset, filepath.Base(dataset)))
 	if err != nil {
 		return err
 	}
@@ -105,6 +115,9 @@ func Test(h *hnsw.HNSW[Node], dataset string) error {
 	t := time.Now()
 	c := 0
 
+	errors := 0
+	weight := 0.0
+
 	for {
 		q, err := query.Read()
 		if err != nil {
@@ -116,10 +129,16 @@ func Test(h *hnsw.HNSW[Node], dataset string) error {
 			break
 		}
 
-		Query(h, q, t)
+		e, w := Query(h, 10, q, t)
+		errors += e
+		weight += w
+
 		c++
 	}
 
 	fmt.Printf("\n%d queries in %v (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c)
+
+	fmt.Printf("\n%d failed %v (%v)\n", c*10, errors, weight)
+
 	return nil
 }

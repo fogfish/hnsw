@@ -14,13 +14,14 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/fogfish/hnsw"
 	"github.com/fogfish/hnsw/cmd/try"
+	"github.com/fogfish/hnsw/kv"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/spf13/cobra"
-	"github.com/willf/bitset"
 )
 
 func init() {
@@ -51,9 +52,9 @@ It is required to obtain the dataset(s) into local environment:
 }
 
 func draw(cmd *cobra.Command, args []string) error {
-	h := try.New()
+	h := try.New(128)
 
-	if err := try.Create(h, drawDataset); err != nil {
+	if err := try.Insert(h, 8, drawDataset); err != nil {
 		return err
 	}
 
@@ -68,7 +69,7 @@ func draw(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
+func drawLevel(h *hnsw.HNSW[kv.Vector], level int) error {
 	nodes, links, kinds := cutLevel(h, level)
 	if len(nodes) == 0 || len(links) == 0 {
 		return nil
@@ -79,14 +80,14 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 	graph.AddSeries("graph", nodes, links).
 		SetSeriesOptions(
 			charts.WithGraphChartOpts(opts.GraphChart{
-				Layout:             "force",
-				Draggable:          true,
+				Layout: "force",
+				// Draggable:          true,
 				Roam:               true,
 				FocusNodeAdjacency: true,
 				Force: &opts.GraphForce{
-					Repulsion:  200.0, //800.0,
-					Gravity:    0.05,  //0.01,
-					EdgeLength: 60.0,
+					Repulsion: 800.0,
+					Gravity:   0.05, //0.01,
+					// EdgeLength: 60.0,
 				},
 
 				Categories: kinds,
@@ -99,7 +100,8 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 				},
 			}),
 			charts.WithLineStyleOpts(opts.LineStyle{
-				Curveness: 0.3,
+				// Curveness: 0.3,
+				Color: "source",
 			}),
 		)
 
@@ -117,18 +119,19 @@ func drawLevel(h *hnsw.HNSW[try.Node], level int) error {
 	return page.Render(io.MultiWriter(f))
 }
 
-func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.GraphLink, []*opts.GraphCategory) {
+func cutLevel(h *hnsw.HNSW[kv.Vector], level int) ([]opts.GraphNode, []opts.GraphLink, []*opts.GraphCategory) {
 	var visited bitset.BitSet
+
 	mrank := level
 	nodes := []opts.GraphNode{}
 	links := []opts.GraphLink{}
 	kinds := []*opts.GraphCategory{}
 
-	h.FMap(level, func(rank int, vector try.Node, vertex []try.Node) error {
-		if visited.Test(uint(vector.ID)) {
+	h.FMap(level, func(rank int, vector kv.Vector, vertex []kv.Vector) error {
+		if visited.Test(uint(vector.Key)) {
 			return nil
 		}
-		visited.Set(uint(vector.ID))
+		visited.Set(uint(vector.Key))
 
 		if rank > mrank {
 			mrank = rank
@@ -136,7 +139,7 @@ func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.Graph
 
 		nodes = append(nodes,
 			opts.GraphNode{
-				Name:     strconv.Itoa(vector.ID),
+				Name:     strconv.Itoa(int(vector.Key)),
 				Category: rank - level - 1,
 			},
 		)
@@ -144,8 +147,9 @@ func cutLevel(h *hnsw.HNSW[try.Node], level int) ([]opts.GraphNode, []opts.Graph
 		for _, v := range vertex {
 			links = append(links,
 				opts.GraphLink{
-					Source: strconv.Itoa(vector.ID),
-					Target: strconv.Itoa(v.ID),
+					Source: strconv.Itoa(int(vector.Key)),
+					Target: strconv.Itoa(int(v.Key)),
+					// Value:  200.0 * vv.Euclidean.Distance(vector.Vector, v.Vector),
 				},
 			)
 		}

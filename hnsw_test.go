@@ -9,16 +9,43 @@
 package hnsw_test
 
 import (
+	"math/rand"
 	"testing"
+
+	"github.com/fogfish/hnsw"
+	"github.com/kshard/vector"
 )
 
-func BenchmarkXxx(b *testing.B) {
-	// TODO:
-	// h := hnsw.New(nil, hnsw.Vector{0})
+const n = 128
 
-	// b.ReportAllocs()
+func vZero() vector.F32 {
+	v := make(vector.F32, n)
+	for i := 0; i < n; i++ {
+		v[i] = 0
+	}
+	return v
+}
 
-	// for n := b.N; n > 0; n-- {
-	// 	h.Insert(hnsw.Vector{float32(rand.Int63n(100000))})
-	// }
+func vRand() vector.F32 {
+	v := make(vector.F32, n)
+	for i := 0; i < n; i++ {
+		v[i] = rand.Float32()
+	}
+	return v
+}
+
+func BenchmarkInsert(b *testing.B) {
+	h := hnsw.New[vector.F32](
+		vector.Euclidean(),
+		// vector.Cosine,
+		vZero(),
+		hnsw.WithEfConstruction(400),
+		hnsw.WithM(16),
+	)
+
+	b.ReportAllocs()
+
+	for n := b.N; n > 0; n-- {
+		h.Insert(vRand())
+	}
 }

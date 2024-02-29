@@ -10,7 +10,6 @@ package pq
 
 import (
 	"container/heap"
-	"fmt"
 )
 
 type Ord[T any] interface{ Compare(T, T) int }
@@ -20,11 +19,11 @@ type Queue[T any] struct {
 }
 
 func New[T any](ord Ord[T], seq ...T) Queue[T] {
-	mm := [64]T{}
+	mm := [400]T{}
 	pq := Queue[T]{
 		heap: &heaps[T]{
 			ord: ord,
-			mem: mm[0:0], // make([]T, 0),
+			mem: mm[0:0:400], // make([]T, 0),
 		},
 	}
 
@@ -58,8 +57,6 @@ func (q Queue[T]) Deq() T {
 	q.heap.mem = (*mem)[0 : n-1]
 	return item
 }
-
-func (q Queue[T]) D() { fmt.Println(q.heap.mem) }
 
 //
 //

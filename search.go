@@ -9,8 +9,8 @@
 package hnsw
 
 import (
+	"github.com/bits-and-blooms/bitset"
 	"github.com/fogfish/hnsw/internal/pq"
-	"github.com/willf/bitset"
 )
 
 // skip the graph to "nearest" node
@@ -27,9 +27,10 @@ func (h *HNSW[Vector]) skip(level int, addr Pointer, q Vector) Pointer {
 // skip to "nearest" connection at the node.
 // it return input address if no "movements" is possible
 func (h *HNSW[Vector]) skipToNearest(level int, addr Pointer, q Vector) Pointer {
-	dist := h.surface.Distance(h.heap[addr].Vector, q)
+	node := h.heap[addr]
+	dist := h.surface.Distance(node.Vector, q)
 
-	for _, a := range h.heap[addr].Connections[level] {
+	for _, a := range node.Connections[level] {
 		d := h.surface.Distance(h.heap[a].Vector, q)
 		if d < dist {
 			dist = d
@@ -42,7 +43,7 @@ func (h *HNSW[Vector]) skipToNearest(level int, addr Pointer, q Vector) Pointer 
 
 // Search "nearest" vectors on the layer
 func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq.Queue[Vertex] {
-	var visited bitset.BitSet
+	visited := bitset.New(uint(ef))
 
 	this := Vertex{
 		Distance: h.surface.Distance(q, h.heap[addr].Vector),
@@ -60,7 +61,22 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 			break
 		}
 
-		for _, e := range h.heap[c.Addr].Connections[level] {
+		// if len(h.heap[c.Addr].Connections[level]) == 0 {
+		// 	fmt.Printf("==> %+v\n", h.heap[c.Addr])
+		// 	panic("fuck")
+		// }
+
+		cnode := h.heap[c.Addr]
+
+		// defer func() {
+		// 	if r := recover(); r != nil {
+		// 		fmt.Printf("Recovered. Error: lvl = %v, addr = %v, node = %v\n", level, c.Addr, cnode)
+		// 	}
+		// }()
+
+		// if len(cnode.Connections) > level && len(cnode.Connections[level]) > 0 {
+		// if cnode.Connections != nil && len(cnode.Connections) > level {
+		for _, e := range cnode.Connections[level] {
 			if !visited.Test(uint(e)) {
 				visited.Set(uint(e))
 
@@ -78,6 +94,7 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 					candidates.Enq(item)
 				}
 			}
+			// }
 		}
 	}
 
@@ -86,8 +103,13 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 
 // Search K-nearest vectors from the graph
 func (h *HNSW[Vector]) Search(q Vector, K int, efSearch int) []Vector {
+
+	h.RLock()
 	head := h.head
-	for lvl := h.level - 1; lvl >= 0; lvl-- {
+	hLevel := h.level
+	h.RUnlock()
+
+	for lvl := hLevel - 1; lvl >= 0; lvl-- {
 		head = h.skip(lvl, head, q)
 	}
 
