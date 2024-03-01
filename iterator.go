@@ -8,6 +8,11 @@
 
 package hnsw
 
+import (
+	"fmt"
+	"strings"
+)
+
 type FMap[Vector any] func(level int, vector Vector, vertex []Vector) error
 
 func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
@@ -27,4 +32,21 @@ func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
 	}
 
 	return nil
+}
+
+func (h *HNSW[Vector]) Dump(sb *strings.Builder) {
+	for lvl := h.level - 1; lvl >= 0; lvl-- {
+		sb.WriteString(fmt.Sprintf("\n\n==> %v\n", lvl))
+
+		h.FMap(lvl, func(level int, vector Vector, vertex []Vector) error {
+
+			sb.WriteString(fmt.Sprintf("%v | ", vector))
+			for _, e := range vertex {
+				sb.WriteString(fmt.Sprintf("%v ", e))
+			}
+			sb.WriteString("\n")
+
+			return nil
+		})
+	}
 }

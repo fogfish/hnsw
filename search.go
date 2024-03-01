@@ -61,22 +61,13 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 			break
 		}
 
-		// if len(h.heap[c.Addr].Connections[level]) == 0 {
-		// 	fmt.Printf("==> %+v\n", h.heap[c.Addr])
-		// 	panic("fuck")
-		// }
-
+		slot := c.Addr % heapRWSlots
+		h.rwHeap[slot].RLock()
 		cnode := h.heap[c.Addr]
+		cedge := cnode.Connections[level]
+		h.rwHeap[slot].RUnlock()
 
-		// defer func() {
-		// 	if r := recover(); r != nil {
-		// 		fmt.Printf("Recovered. Error: lvl = %v, addr = %v, node = %v\n", level, c.Addr, cnode)
-		// 	}
-		// }()
-
-		// if len(cnode.Connections) > level && len(cnode.Connections[level]) > 0 {
-		// if cnode.Connections != nil && len(cnode.Connections) > level {
-		for _, e := range cnode.Connections[level] {
+		for _, e := range cedge {
 			if !visited.Test(uint(e)) {
 				visited.Set(uint(e))
 
@@ -94,7 +85,6 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 					candidates.Enq(item)
 				}
 			}
-			// }
 		}
 	}
 
@@ -104,10 +94,10 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 // Search K-nearest vectors from the graph
 func (h *HNSW[Vector]) Search(q Vector, K int, efSearch int) []Vector {
 
-	h.RLock()
+	h.rwCore.RLock()
 	head := h.head
 	hLevel := h.level
-	h.RUnlock()
+	h.rwCore.RUnlock()
 
 	for lvl := hLevel - 1; lvl >= 0; lvl-- {
 		head = h.skip(lvl, head, q)

@@ -17,7 +17,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fogfish/hnsw"
 	"github.com/fogfish/hnsw/cmd/try"
-	"github.com/fogfish/hnsw/kv"
+	kv "github.com/fogfish/hnsw/vector"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -69,7 +69,7 @@ func draw(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func drawLevel(h *hnsw.HNSW[kv.Vector], level int) error {
+func drawLevel(h *hnsw.HNSW[kv.VF32], level int) error {
 	nodes, links, kinds := cutLevel(h, level)
 	if len(nodes) == 0 || len(links) == 0 {
 		return nil
@@ -80,14 +80,13 @@ func drawLevel(h *hnsw.HNSW[kv.Vector], level int) error {
 	graph.AddSeries("graph", nodes, links).
 		SetSeriesOptions(
 			charts.WithGraphChartOpts(opts.GraphChart{
-				Layout: "force",
-				// Draggable:          true,
+				Layout:             "force",
 				Roam:               true,
 				FocusNodeAdjacency: true,
 				Force: &opts.GraphForce{
-					Repulsion: 800.0,
-					Gravity:   0.05, //0.01,
-					// EdgeLength: 60.0,
+					Repulsion:  800.0,
+					Gravity:    0.05,
+					EdgeLength: 60.0,
 				},
 
 				Categories: kinds,
@@ -100,8 +99,8 @@ func drawLevel(h *hnsw.HNSW[kv.Vector], level int) error {
 				},
 			}),
 			charts.WithLineStyleOpts(opts.LineStyle{
-				// Curveness: 0.3,
-				Color: "source",
+				Curveness: 0.3,
+				Color:     "source",
 			}),
 		)
 
@@ -119,7 +118,7 @@ func drawLevel(h *hnsw.HNSW[kv.Vector], level int) error {
 	return page.Render(io.MultiWriter(f))
 }
 
-func cutLevel(h *hnsw.HNSW[kv.Vector], level int) ([]opts.GraphNode, []opts.GraphLink, []*opts.GraphCategory) {
+func cutLevel(h *hnsw.HNSW[kv.VF32], level int) ([]opts.GraphNode, []opts.GraphLink, []*opts.GraphCategory) {
 	var visited bitset.BitSet
 
 	mrank := level
@@ -127,7 +126,7 @@ func cutLevel(h *hnsw.HNSW[kv.Vector], level int) ([]opts.GraphNode, []opts.Grap
 	links := []opts.GraphLink{}
 	kinds := []*opts.GraphCategory{}
 
-	h.FMap(level, func(rank int, vector kv.Vector, vertex []kv.Vector) error {
+	h.FMap(level, func(rank int, vector kv.VF32, vertex []kv.VF32) error {
 		if visited.Test(uint(vector.Key)) {
 			return nil
 		}
@@ -149,7 +148,7 @@ func cutLevel(h *hnsw.HNSW[kv.Vector], level int) ([]opts.GraphNode, []opts.Grap
 				opts.GraphLink{
 					Source: strconv.Itoa(int(vector.Key)),
 					Target: strconv.Itoa(int(v.Key)),
-					// Value:  200.0 * vv.Euclidean.Distance(vector.Vector, v.Vector),
+					Value:  200.0 * h.Distance(vector, v),
 				},
 			)
 		}

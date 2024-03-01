@@ -26,29 +26,35 @@ again:
 
 // Insert new vector
 func (h *HNSW[Vector]) Insert(v Vector) {
+	//
+	// allocate new node
+	//
+
 	level := int(math.Floor(-math.Log(h.rand() * h.config.mL)))
 
+	addr := Pointer(0)
 	node := Node[Vector]{
 		Vector:      v,
 		Connections: make([][]Pointer, level+1),
 	}
 
-	h.Lock()
-	h.heap = append(h.heap, node)
-	addr := Pointer(len(h.heap) - 1)
-	h.Unlock()
-
+	//
 	// skip down through layers
-	h.RLock()
+	//
+
+	h.rwCore.RLock()
 	head := h.head
 	hLevel := h.level
-	h.RUnlock()
+	h.rwCore.RUnlock()
 
 	for lvl := hLevel - 1; lvl > level; lvl-- {
 		head = h.skip(lvl, head, v)
 	}
 
 	//
+	// start building neighborhood
+	//
+
 	for lvl := min(level, hLevel-1); lvl >= 0; lvl-- {
 		M := h.config.mLayerN
 		if lvl == 0 {
@@ -61,37 +67,61 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		for w.Len() > M {
 			w.Deq()
 		}
-		// if w.Len() > M {
-		// 	w = h.SelectNeighboursHeuristic(lvl, v, w, M)
-		// }
 
-		// Add Bi-Edges
-		//h.Lock()
+		// Add Edges from new node to existing one
 		edges := make([]Pointer, w.Len())
-		// node.Connections[lvl] = make([]Pointer, w.Len())
 		for i := w.Len() - 1; i >= 0; i-- {
 			candidate := w.Deq()
 			edges[i] = candidate.Addr
-			//node.Connections[lvl][i] = candidate.Addr
-
-			n := h.heap[candidate.Addr]
-			c := n.Connections[lvl]
-			h.Lock()
-			n.Connections[lvl] = append(c, addr)
-			h.Unlock()
 		}
-		h.Lock()
 		node.Connections[lvl] = edges
-		h.Unlock()
+	}
 
-		// Shrink Connection
-		for _, e := range node.Connections[lvl] {
+	// if w.Len() > M {
+	// 	w = h.SelectNeighboursHeuristic(lvl, v, w, M)
+	// }
 
-			if len(h.heap[e].Connections[lvl]) > M {
+	//
+	// Append new node
+	//
+
+	h.rwCore.Lock()
+	addr = Pointer(len(h.heap))
+	h.rwHeap[addr%heapRWSlots].Lock()
+	h.heap = append(h.heap, node)
+	h.rwHeap[addr%heapRWSlots].Unlock()
+	h.rwCore.Unlock()
+
+	for lvl, edges := range node.Connections {
+		for i := 0; i < len(edges); i++ {
+			h.addConnection(lvl, edges[i], addr)
+		}
+	}
+
+	//
+	// Shrink Connections
+	//
+
+	for lvl, edges := range node.Connections {
+		M := h.config.mLayerN
+		if lvl == 0 {
+			M = h.config.mLayer0
+		}
+
+		for _, e := range edges {
+			slot := e % heapRWSlots
+			h.rwHeap[slot].RLock()
+			enode := h.heap[e]
+			eedges := enode.Connections[lvl]
+			h.rwHeap[slot].RUnlock()
+
+			if len(eedges) > M {
 				edges := pq.New(ordReverseVertex(""))
 
-				for _, n := range h.heap[e].Connections[lvl] {
-					dist := h.surface.Distance(h.heap[e].Vector, h.heap[n].Vector)
+				for _, n := range eedges {
+					nnode := h.heap[n]
+
+					dist := h.surface.Distance(enode.Vector, nnode.Vector)
 					item := Vertex{Distance: dist, Addr: n}
 					edges.Enq(item)
 				}
@@ -108,20 +138,36 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 					conns[i] = edges.Deq().Addr
 				}
 
-				h.Lock()
+				h.rwHeap[slot].Lock()
 				h.heap[e].Connections[lvl] = conns
-				h.Unlock()
+				h.rwHeap[slot].Unlock()
 			}
 		}
-
 	}
 
-	h.Lock()
+	//
+	// Update Heap
+	//
+
+	h.rwCore.Lock()
 	if len(node.Connections) > h.level {
 		h.level = len(node.Connections)
 		h.head = addr
 	}
-	h.Unlock()
+	h.rwCore.Unlock()
+}
+
+func (h *HNSW[Vector]) addConnection(level int, src, dst Pointer) {
+	slot := src % heapRWSlots
+
+	h.rwHeap[slot].RLock()
+	n := h.heap[src]
+	c := n.Connections[level]
+	h.rwHeap[slot].RUnlock()
+
+	h.rwHeap[slot].Lock()
+	n.Connections[level] = append(c, dst)
+	h.rwHeap[slot].Unlock()
 }
 
 /*

@@ -19,11 +19,11 @@ type Queue[T any] struct {
 }
 
 func New[T any](ord Ord[T], seq ...T) Queue[T] {
-	mm := [400]T{}
+	mm := [64]T{}
 	pq := Queue[T]{
 		heap: &heaps[T]{
 			ord: ord,
-			mem: mm[0:0:400], // make([]T, 0),
+			mem: mm[0:0:64], // make([]T, 0),
 		},
 	}
 

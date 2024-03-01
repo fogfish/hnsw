@@ -10,17 +10,19 @@ package opt
 
 import (
 	"github.com/fogfish/hnsw/cmd/try"
-	"github.com/fogfish/hnsw/kv"
+	"github.com/fogfish/hnsw/vector"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(testCmd)
-	testCmd.Flags().StringVarP(&testDataset, "dataset", "d", "siftsmall", "name of the dataset from http://corpus-texmex.irisa.fr")
+	testCmd.Flags().StringVarP(&testDataset, "dataset", "d", "", "name of the dataset from http://corpus-texmex.irisa.fr")
+	testCmd.Flags().StringVarP(&testSuite, "suite", "s", "siftsmall", "name of the dataset from http://corpus-texmex.irisa.fr")
 }
 
 var (
 	testDataset string
+	testSuite   string
 )
 
 var testCmd = &cobra.Command{
@@ -42,33 +44,9 @@ It is required to obtain the dataset(s) into local environment:
 func test(cmd *cobra.Command, args []string) error {
 	h := try.New(128)
 
-	// f := fmt.Sprintf("%s/%s_base.fvecs", testDataset, filepath.Base(testDataset))
-
-	// if err := try.Insert(h, 8, f); err != nil {
-	// 	return err
-	// }
-
-	// if err := kv.Write(h, "test"); err != nil {
-	// 	panic(err)
-	// }
-
-	if err := kv.Read(h, "test"); err != nil {
-		panic(err)
+	if err := vector.Read(h, testDataset); err != nil {
+		return err
 	}
 
-	// h.Dump()
-
-	// w, _ := os.Create("test.ivecs")
-	// e := fvecs.NewEncoder[uint32](w)
-
-	// h.Encode(e)
-
-	// h.FMap(3, func(level int, vector try.Node, vertex []try.Node) error {
-	// 	fmt.Printf("ID: %d => %d\n", vector.ID, len(vertex))
-
-	// 	return nil
-	// })
-
-	// return nil
-	return try.Test(h, testDataset)
+	return try.Test(h, testSuite)
 }

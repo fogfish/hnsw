@@ -10,30 +10,31 @@ package opt
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"time"
 
+	"github.com/fogfish/hnsw/cmd/try"
+	"github.com/fogfish/hnsw/vector"
+	kv "github.com/fogfish/hnsw/vector"
 	"github.com/kshard/fvecs"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(queryCmd)
-	queryCmd.Flags().StringVarP(&queryVectors, "dataset", "d", "", ".fvecs")
-	queryCmd.Flags().StringVarP(&queryText, "text", "t", "", ".bvecs")
+	queryCmd.Flags().StringVarP(&queryDataset, "dataset", "d", "", "path to hnsw index")
 	queryCmd.Flags().IntVarP(&queryVecSize, "vector", "v", 128, "vector size")
 	queryCmd.Flags().StringVarP(&queryQuery, "query", "q", "", ".fvecs")
-
-	// drawCmd.Flags().StringVarP(&drawOutput, "output", "o", ".", "directory to output rendered layers")
+	queryCmd.Flags().StringVarP(&queryText, "text", "t", "", ".bvecs")
 }
 
 var (
-	queryVectors string
-	queryText    string
+	queryDataset string
 	queryVecSize int
 	queryQuery   string
-
-	// drawOutput  string
+	queryText    string
 )
 
 var queryCmd = &cobra.Command{
@@ -46,69 +47,71 @@ var queryCmd = &cobra.Command{
 }
 
 func query(cmd *cobra.Command, args []string) error {
-	// h := try.New(queryVecSize)
-	// if err := try.Create(h, queryVectors); err != nil {
-	// 	return err
-	// }
+	h := try.New(queryVecSize)
 
-	// text, err := readText()
-	// if err != nil {
-	// 	return err
-	// }
+	if err := vector.Read(h, queryDataset); err != nil {
+		return err
+	}
 
-	// fv, err := os.Open(queryQuery)
-	// if err != nil {
-	// 	return err
-	// }
-	// defer fv.Close()
+	text, err := readText()
+	if err != nil {
+		return err
+	}
 
-	// //
-	// t := time.Now()
-	// c := 1
-	// fr := fvecs.NewDecoder[float32](fv)
-	// for {
-	// 	q, err := fr.Read()
-	// 	switch {
-	// 	case err == nil:
-	// 		os.Stdout.WriteString("\n---\n")
+	fv, err := os.Open(queryQuery)
+	if err != nil {
+		return err
+	}
+	defer fv.Close()
 
-	// 		result := h.Search(try.Node{Vector: q}, 10, 100)
-	// 		for _, v := range result {
-	// 			d := vector.Cosine.Distance(q, v.Vector)
-	// 			os.Stdout.WriteString(
-	// 				fmt.Sprintf("%f\n%s\n", d, text[v.ID]),
-	// 			)
-	// 		}
+	//
+	t := time.Now()
+	c := 1
+	fr := fvecs.NewDecoder[float32](fv)
 
-	// 	case errors.Is(err, io.EOF):
-	// 		os.Stderr.WriteString(
-	// 			fmt.Sprintf("==> query %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c),
-	// 		)
-	// 		return nil
-	// 	default:
-	// 		return err
-	// 	}
+	for {
+		q, err := fr.Read()
+		switch {
+		case err == nil:
+			os.Stdout.WriteString("\n---\n")
 
-	// 	c++
+			search := kv.VF32{Vector: q}
+			result := h.Search(search, 5, 100)
+			for _, v := range result {
+				d := h.Distance(search, v)
+				os.Stdout.WriteString(
+					fmt.Sprintf("%f\n%s\n", d, text[v.Key]),
+				)
+			}
 
-	// 	if c%1000 == 0 {
-	// 		os.Stderr.WriteString(
-	// 			fmt.Sprintf("==> query %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c),
-	// 		)
-	// 	}
-	// }
-	return nil
+		case errors.Is(err, io.EOF):
+			os.Stderr.WriteString(
+				fmt.Sprintf("==> query %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c),
+			)
+			return nil
+		default:
+			return err
+		}
+
+		c++
+
+		if c%1000 == 0 {
+			os.Stderr.WriteString(
+				fmt.Sprintf("==> query %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c),
+			)
+		}
+	}
 }
 
-func readText() (map[int]string, error) {
+func readText() (map[uint32]string, error) {
 	bv, err := os.Open(queryText)
 	if err != nil {
 		return nil, err
 	}
 	defer bv.Close()
 
-	id := 1
-	text := map[int]string{}
+	id := uint32(0)
+	text := map[uint32]string{}
 	br := fvecs.NewDecoder[byte](bv)
 
 	for {
@@ -116,6 +119,7 @@ func readText() (map[int]string, error) {
 
 		switch {
 		case err == nil:
+			id++
 			text[id] = string(t)
 		case errors.Is(err, io.EOF):
 			return text, nil
@@ -123,6 +127,5 @@ func readText() (map[int]string, error) {
 			return nil, err
 		}
 
-		id++
 	}
 }

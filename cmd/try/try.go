@@ -17,23 +17,23 @@ import (
 	"time"
 
 	"github.com/fogfish/hnsw"
-	"github.com/fogfish/hnsw/kv"
+	kv "github.com/fogfish/hnsw/vector"
 	"github.com/kshard/fvecs"
 	"github.com/kshard/vector"
 )
 
-// New HNSW Index
-func New(vs int) *hnsw.HNSW[kv.Vector] {
-	return hnsw.New[kv.Vector](
+// New HNSW Index for given vector's dimension
+func New(vs int) *hnsw.HNSW[kv.VF32] {
+	return hnsw.New[kv.VF32](
 		kv.Surface(vector.Euclidean()),
 		kv.Zero(vs),
-		hnsw.WithEfConstruction(200),
+		hnsw.WithEfConstruction(400),
 		hnsw.WithM(16),
 	)
 }
 
 // Insert dataset
-func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
+func Insert(h *hnsw.HNSW[kv.VF32], threads int, dataset string) error {
 	fmt.Printf("==> reading %s\n", dataset)
 
 	f, err := os.Open(dataset)
@@ -43,7 +43,7 @@ func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
 	defer f.Close()
 
 	t := time.Now()
-	c := uint32(1)
+	c := uint32(0)
 
 	progress := func() {
 		os.Stderr.WriteString(
@@ -58,7 +58,9 @@ func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
 		vec, err := d.Read()
 		switch {
 		case err == nil:
-			w <- kv.Vector{Key: c, Vector: vec}
+			c++
+			// fmt.Printf("%v\n", vec)
+			w <- kv.VF32{Key: c, Vector: vec}
 		case errors.Is(err, io.EOF):
 			progress()
 			return nil
@@ -66,7 +68,6 @@ func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
 			return err
 		}
 
-		c++
 		if c%10000 == 0 {
 			progress()
 		}
@@ -74,8 +75,10 @@ func Insert(h *hnsw.HNSW[kv.Vector], threads int, dataset string) error {
 }
 
 // Query index comparing with ground truth
-func Query(h *hnsw.HNSW[kv.Vector], k int, query []float32, truth []uint32) (int, float64) {
-	result := h.Search(kv.Vector{Vector: query}, k, 100)
+func Query(h *hnsw.HNSW[kv.VF32], k int, query []float32, truth []uint32) (int, float64) {
+	result := h.Search(kv.VF32{Vector: query}, k, 100)
+
+	//fmt.Printf("%v\n", result)
 
 	errors := 0
 	weight := 0.0
@@ -92,7 +95,7 @@ func Query(h *hnsw.HNSW[kv.Vector], k int, query []float32, truth []uint32) (int
 	return errors, weight
 }
 
-func Test(h *hnsw.HNSW[kv.Vector], dataset string) error {
+func Test(h *hnsw.HNSW[kv.VF32], dataset string) error {
 	fmt.Printf("==> testing dataset %s\n", dataset)
 
 	qf, err := os.Open(fmt.Sprintf("%s/%s_query.fvecs", dataset, filepath.Base(dataset)))
