@@ -1,6 +1,6 @@
 module github.com/fogfish/hnsw/cmd
 
-go 1.22.0
+go 1.21.3
 
 require (
 	github.com/bits-and-blooms/bitset v1.13.0
