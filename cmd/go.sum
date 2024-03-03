@@ -16,8 +16,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/kshard/fvecs v0.0.1 h1:4FIjuJaiWWv1Q2y20w/1l13WhNlErWXs4yYVLmotNGo=
 github.com/kshard/fvecs v0.0.1/go.mod h1:cehO9AfnF3Tb2vOwhOWmoaNUfYqmm4WQrUMyrPGqN6Q=
-github.com/kshard/vector v0.0.2 h1:eh6d2XpcSRRZYaJAK2F0l5Ccql1NYpZY4vDBNBRj7qs=
-github.com/kshard/vector v0.0.2/go.mod h1:5sauOIat9reamLm+hPc6M7n2oWo3G6z5u1V0lQvpYYE=
+github.com/kshard/vector v0.0.3 h1:8/4t3uuv4N6gXOxgnN4RPfIel4Uq/BBSwnOjxmMWEXc=
+github.com/kshard/vector v0.0.3/go.mod h1:l5c902GqrnE4/LvJAmSCbtGorXeMe9si5SHtwckr8jc=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=

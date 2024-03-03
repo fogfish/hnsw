@@ -1,0 +1,48 @@
+##
+## Build the main branch
+##
+name: build
+on:
+  push:
+    branches:
+      - main
+      - /refs/heads/main
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - uses: actions/checkout@v4.1.1
+     
+      - name: go build
+        run: |
+          go build ./...
+    
+      - name: go test
+        run: |
+          go test -v -coverprofile=profile.cov $(go list ./... | grep -v /examples/)
+
+      - uses: shogo82148/actions-goveralls@v1
+        continue-on-error: true
+        with:
+          path-to-profile: profile.cov
+
+      - uses: reecetech/version-increment@2023.10.2
+        id: version
+        with:
+          scheme: semver
+          increment: patch
+
+      - name: publish
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag ${{ steps.version.outputs.v-version }}
+          git push origin -u ${{ steps.version.outputs.v-version }}
+

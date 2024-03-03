@@ -7,7 +7,7 @@ require (
 	github.com/fogfish/hnsw v0.0.0-00010101000000-000000000000
 	github.com/go-echarts/go-echarts/v2 v2.3.3
 	github.com/kshard/fvecs v0.0.1
-	github.com/kshard/vector v0.0.2
+	github.com/kshard/vector v0.0.3
 	github.com/spf13/cobra v1.8.0
 )
 
