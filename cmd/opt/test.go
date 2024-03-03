@@ -9,26 +9,27 @@
 package opt
 
 import (
-	"fmt"
-
 	"github.com/fogfish/hnsw/cmd/try"
+	"github.com/fogfish/hnsw/vector"
 	"github.com/spf13/cobra"
 )
 
 func init() {
 	rootCmd.AddCommand(testCmd)
-	testCmd.Flags().StringVarP(&testDataset, "dataset", "d", "siftsmall", "name of the dataset from http://corpus-texmex.irisa.fr")
+	testCmd.Flags().StringVarP(&testDataset, "dataset", "d", "", "name of the dataset from http://corpus-texmex.irisa.fr")
+	testCmd.Flags().StringVarP(&testSuite, "suite", "s", "siftsmall", "name of the dataset from http://corpus-texmex.irisa.fr")
 }
 
 var (
 	testDataset string
+	testSuite   string
 )
 
 var testCmd = &cobra.Command{
 	Use:   "test",
 	Short: "test the algorithm against dataset",
 	Long: `
-'hnsw graw' tests algorithms against datasets for approximate
+'hnsw draw' tests algorithms against datasets for approximate
 nearest neighbor search available at http://corpus-texmex.irisa.fr.
 
 It is required to obtain the dataset(s) into local environment:
@@ -41,13 +42,11 @@ It is required to obtain the dataset(s) into local environment:
 }
 
 func test(cmd *cobra.Command, args []string) error {
-	h := try.New()
+	h := try.New(128)
 
-	if err := try.Create(h, testDataset); err != nil {
+	if err := vector.Read(h, testDataset); err != nil {
 		return err
 	}
 
-	fmt.Println()
-
-	return try.Test(h, testDataset)
+	return try.Test(h, testSuite)
 }

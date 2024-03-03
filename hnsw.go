@@ -11,9 +11,10 @@ package hnsw
 import (
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
-	"github.com/fogfish/hnsw/vector"
+	"github.com/kshard/vector"
 )
 
 // Config of the HNSW
@@ -69,8 +70,14 @@ func WithRandomSource(random rand.Source) Option {
 	}
 }
 
+// Slots to coordinate concurrent I/O
+const heapRWSlots = 1024
+
 // HNSW data type
 type HNSW[Vector any] struct {
+	rwCore sync.RWMutex
+	rwHeap [heapRWSlots]sync.RWMutex
+
 	config  Config
 	surface vector.Surface[Vector]
 
@@ -116,40 +123,6 @@ func New[Vector any](
 
 func (h *HNSW[Vector]) Level() int { return h.level }
 
-//
-//
-//
-
-// func (h *HNSW[Vector]) Head() Pointer                  { return h.head }
-// func (h *HNSW[Vector]) Node(addr Pointer) Node[Vector] { return h.heap[addr] }
-
-// func (h *HNSW[Vector]) Dump() {
-// 	sb := strings.Builder{}
-
-// 	for lvl := h.level - 1; lvl >= 0; lvl-- {
-// 		visited := map[Pointer]struct{}{}
-
-// 		sb.WriteString(fmt.Sprintf("\n\n==> %v\n", lvl))
-// 		h.dump(&sb, lvl, visited, h.head)
-// 	}
-
-// 	fmt.Println(sb.String())
-// }
-
-// func (h *HNSW[Vector]) dump(sb *strings.Builder, level int, visited map[Pointer]struct{}, addr Pointer) {
-// 	if _, has := visited[addr]; has {
-// 		return
-// 	}
-
-// 	visited[addr] = struct{}{}
-
-// 	sb.WriteString(fmt.Sprintf("%v | ", h.heap[addr].Vector))
-// 	for _, e := range h.heap[addr].Connections[level] {
-// 		sb.WriteString(fmt.Sprintf("%v ", h.heap[e].Vector))
-// 	}
-// 	sb.WriteString("\n")
-
-// 	for _, e := range h.heap[addr].Connections[level] {
-// 		h.dump(sb, level, visited, e)
-// 	}
-// }
+func (h *HNSW[Vector]) Distance(a, b Vector) float32 {
+	return h.surface.Distance(a, b)
+}

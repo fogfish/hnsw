@@ -1,5 +1,9 @@
 go.work
 go.work.sum
 cmd/sift*
+
 *.html
+*.fvecs
+*.ivecs
+*.bvecs
 
