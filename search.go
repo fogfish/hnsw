@@ -46,7 +46,7 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 	visited := bitset.New(uint(ef))
 
 	this := Vertex{
-		Distance: h.surface.Distance(q, h.heap[addr].Vector),
+		Distance: h.surface.Distance(h.heap[addr].Vector, q),
 		Addr:     addr,
 	}
 
@@ -71,7 +71,7 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 			if !visited.Test(uint(e)) {
 				visited.Set(uint(e))
 
-				dist := h.surface.Distance(q, h.heap[e].Vector)
+				dist := h.surface.Distance(h.heap[e].Vector, q)
 				item := Vertex{Distance: dist, Addr: e}
 
 				if setadidnac.Len() < ef {

@@ -59,7 +59,7 @@ func Insert(h *hnsw.HNSW[kv.VF32], threads int, dataset string) error {
 		switch {
 		case err == nil:
 			c++
-			// fmt.Printf("%v\n", vec)
+
 			w <- kv.VF32{Key: c, Vector: vec}
 		case errors.Is(err, io.EOF):
 			progress()
@@ -77,8 +77,6 @@ func Insert(h *hnsw.HNSW[kv.VF32], threads int, dataset string) error {
 // Query index comparing with ground truth
 func Query(h *hnsw.HNSW[kv.VF32], k int, query []float32, truth []uint32) (int, float64) {
 	result := h.Search(kv.VF32{Vector: query}, k, 100)
-
-	//fmt.Printf("%v\n", result)
 
 	errors := 0
 	weight := 0.0

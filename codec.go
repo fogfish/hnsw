@@ -9,119 +9,98 @@
 package hnsw
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
+	"github.com/fogfish/faults"
+	"github.com/kelindar/binary"
 )
 
+const (
+	errIO    = faults.Type("i/o error")
+	errCodec = faults.Type("codec failed")
+)
+
+// Getter interface abstract storage
+type Reader interface{ Get([]byte) ([]byte, error) }
+
+// Setter interface abstract storage
+type Writer interface{ Put([]byte, []byte) error }
+
 type header struct {
-	EfConstruction int     `json:"efConstruction"`
-	MLayerN        int     `json:"mLayerN"`
-	MLayer0        int     `json:"mLayer0"`
-	ML             float64 `json:"mL"`
-	Head           Pointer `json:"head"`
-	Level          int     `json:"level"`
+	EfConstruction int
+	MLayerN        int
+	MLayer0        int
+	ML             float64
+	Size           int
+	Head           Pointer
+	Level          int
 }
 
-func (h *HNSW[Vector]) Write(
-	w io.Writer,
-	nodes interface {
-		Write(n Vector) error
-	},
-	edges interface {
-		Write(v []Pointer) error
-	},
-) error {
+// Write index to storage
+func (h *HNSW[Vector]) Write(w Writer) error {
 	h.rwCore.Lock()
 	defer h.rwCore.Unlock()
 
 	for i := 0; i < heapRWSlots; i++ {
 		h.rwHeap[i].Lock()
 		defer h.rwHeap[i].Unlock()
-	}
-
-	if err := h.writeEdges(edges); err != nil {
-		return err
-	}
-
-	if err := h.writeNodes(nodes); err != nil {
-		return err
 	}
 
 	if err := h.writeHeader(w); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (h *HNSW[Vector]) writeEdges(
-	edges interface {
-		Write(v []Pointer) error
-	},
-) error {
-	for l := h.level - 1; l >= 0; l-- {
-		hv := []Pointer{0, 0, 0, uint32(l)}
-		if err := edges.Write(hv); err != nil {
-			return err
-		}
-
-		for addr, node := range h.heap {
-			if len(node.Connections) > l {
-				iv := make([]Pointer, len(node.Connections[l])+1)
-				iv[0] = Pointer(addr)
-				copy(iv[1:], node.Connections[l])
-
-				if err := edges.Write(iv); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (h *HNSW[Vector]) writeNodes(
-	nodes interface {
-		Write(n Vector) error
-	},
-) error {
-	for _, node := range h.heap {
-		if err := nodes.Write(node.Vector); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (h *HNSW[Vector]) writeHeader(w io.Writer) error {
-	v := header{
-		EfConstruction: h.config.efConstruction,
-		MLayerN:        h.config.mLayerN,
-		MLayer0:        h.config.mLayer0,
-		ML:             h.config.mL,
-		Head:           h.head,
-		Level:          h.level,
-	}
-
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if err := h.writeNodes(w); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *HNSW[Vector]) Read(
-	r io.Reader,
-	nodes interface {
-		Read() (Vector, error)
-	},
-	edges interface {
-		Read() ([]Pointer, error)
-	},
-) error {
+func (h *HNSW[Vector]) writeHeader(w Writer) error {
+	v := header{
+		EfConstruction: h.config.efConstruction,
+		MLayerN:        h.config.mLayerN,
+		MLayer0:        h.config.mLayer0,
+		ML:             h.config.mL,
+		Size:           len(h.heap),
+		Head:           h.head,
+		Level:          h.level,
+	}
+
+	b, err := binary.Marshal(v)
+	if err != nil {
+		return errCodec.New(err)
+	}
+
+	err = w.Put([]byte("&root"), b)
+	if err != nil {
+		return errIO.New(err)
+	}
+
+	return nil
+}
+
+func (h *HNSW[Vector]) writeNodes(w Writer) error {
+	var bkey [5]byte
+	bkey[0] = '&'
+
+	for key, node := range h.heap {
+		binary.LittleEndian.PutUint32(bkey[1:], uint32(key))
+
+		b, err := binary.Marshal(node)
+		if err != nil {
+			return errCodec.New(err)
+		}
+
+		err = w.Put(bkey[:], b)
+		if err != nil {
+			return errIO.New(err)
+		}
+	}
+
+	return nil
+}
+
+func (h *HNSW[Vector]) Read(r Reader) error {
 	h.rwCore.Lock()
 	defer h.rwCore.Unlock()
 
@@ -130,85 +109,56 @@ func (h *HNSW[Vector]) Read(
 		defer h.rwHeap[i].Unlock()
 	}
 
-	if err := h.readNodes(nodes); err != nil {
-		return err
-	}
-
-	if err := h.readEdges(edges); err != nil {
-		return err
-	}
-
 	if err := h.readHeader(r); err != nil {
+		return err
+	}
+
+	if err := h.readNodes(r); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *HNSW[Vector]) readNodes(
-	nodes interface {
-		Read() (Vector, error)
-	},
-) error {
-	h.heap = []Node[Vector]{}
-
-	for {
-		nv, err := nodes.Read()
-		switch {
-		case err == nil:
-			node := Node[Vector]{Vector: nv}
-			h.heap = append(h.heap, node)
-		case errors.Is(err, io.EOF):
-			return nil
-		default:
-			return err
-		}
-	}
-}
-
-func (h *HNSW[Vector]) readEdges(
-	edges interface {
-		Read() ([]Pointer, error)
-	},
-) error {
-	lvl := -1
-
-	for {
-		iv, err := edges.Read()
-		switch {
-		case err == nil:
-			if len(iv) == 4 && iv[0] == 0 && iv[1] == 0 && iv[2] == 0 {
-				lvl = int(iv[3])
-			} else {
-				addr := iv[0]
-				node := h.heap[addr]
-				if node.Connections == nil {
-					node.Connections = make([][]Pointer, lvl+1)
-				}
-				node.Connections[lvl] = iv[1:]
-				h.heap[addr] = node
-			}
-		case errors.Is(err, io.EOF):
-			return nil
-		default:
-			return err
-		}
-	}
-}
-
-func (h *HNSW[Vector]) readHeader(r io.Reader) error {
+func (h *HNSW[Vector]) readHeader(r Reader) error {
 	var v header
 
-	if err := json.NewDecoder(r).Decode(&v); err != nil {
-		return err
+	b, err := r.Get([]byte("&root"))
+	if err != nil {
+		return errIO.New(err)
+	}
+
+	if err := binary.Unmarshal(b, &v); err != nil {
+		return errCodec.New(err)
 	}
 
 	h.config.efConstruction = v.EfConstruction
 	h.config.mLayerN = v.MLayerN
 	h.config.mLayer0 = v.MLayer0
 	h.config.mL = v.ML
+	h.heap = make([]Node[Vector], v.Size)
 	h.head = v.Head
 	h.level = v.Level
+
+	return nil
+}
+
+func (h *HNSW[Vector]) readNodes(r Reader) error {
+	var bkey [5]byte
+	bkey[0] = '&'
+
+	for key := 0; key < len(h.heap); key++ {
+		binary.LittleEndian.PutUint32(bkey[1:], uint32(key))
+
+		b, err := r.Get(bkey[:])
+		if err != nil {
+			return errIO.New(err)
+		}
+
+		if err := binary.Unmarshal(b, &h.heap[key]); err != nil {
+			return errCodec.New(err)
+		}
+	}
 
 	return nil
 }
