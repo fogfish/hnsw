@@ -15,8 +15,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/akrylysov/pogreb"
 	"github.com/fogfish/hnsw/cmd/try"
-	"github.com/fogfish/hnsw/vector"
 	kv "github.com/fogfish/hnsw/vector"
 	"github.com/kshard/fvecs"
 	"github.com/spf13/cobra"
@@ -47,9 +47,14 @@ var queryCmd = &cobra.Command{
 }
 
 func query(cmd *cobra.Command, args []string) error {
+	db, err := pogreb.Open(queryDataset, nil)
+	if err != nil {
+		panic(err)
+	}
+
 	h := try.New(queryVecSize)
 
-	if err := vector.Read(h, queryDataset); err != nil {
+	if err := h.Read(db); err != nil {
 		return err
 	}
 
@@ -88,6 +93,7 @@ func query(cmd *cobra.Command, args []string) error {
 			os.Stderr.WriteString(
 				fmt.Sprintf("==> query %9d vectors in %s (%d ns/op)\n", c, time.Since(t), int(time.Since(t).Nanoseconds())/c),
 			)
+			db.Close()
 			return nil
 		default:
 			return err

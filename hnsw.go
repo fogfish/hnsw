@@ -121,6 +121,44 @@ func New[Vector any](
 	return hnsw
 }
 
+// Create data structure FromNodes
+func FromNodes[Vector any](
+	surface vector.Surface[Vector],
+	nodes Nodes[Vector],
+	opts ...Option,
+) *HNSW[Vector] {
+	config := Config{}
+	def := With(
+		WithEfConstruction(100),
+		WithM(16),
+		WithRandomSource(rand.NewSource(time.Now().UnixNano())),
+	)
+
+	def(&config)
+	for _, opt := range opts {
+		opt(&config)
+	}
+
+	hnsw := &HNSW[Vector]{
+		config:  config,
+		surface: surface,
+	}
+
+	hnsw.level = nodes.Rank
+	hnsw.heap = nodes.Heap
+	hnsw.head = nodes.Head
+
+	return hnsw
+}
+
+func (h *HNSW[Vector]) Nodes() Nodes[Vector] {
+	return Nodes[Vector]{
+		Rank: h.level,
+		Head: h.head,
+		Heap: h.heap,
+	}
+}
+
 func (h *HNSW[Vector]) Level() int { return h.level }
 
 func (h *HNSW[Vector]) Distance(a, b Vector) float32 {

@@ -17,6 +17,13 @@ type Node[Vector any] struct {
 	Connections [][]Pointer
 }
 
+// Graph Nodes
+type Nodes[Vector any] struct {
+	Rank int
+	Head Pointer
+	Heap []Node[Vector]
+}
+
 // Vertex to graph node
 type Vertex struct {
 	Distance float32
