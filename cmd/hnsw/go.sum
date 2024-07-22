@@ -80,6 +80,8 @@ github.com/fogfish/golem/pure v0.10.1 h1:0+cnvdaV9zF+0NN8SZMgR5bgFM6yNfBHU4rynYS
 github.com/fogfish/golem/pure v0.10.1/go.mod h1:kLPfgu5uKP0CrwVap7jejisRwV7vo1q8Eyqnc/Z0qyw=
 github.com/fogfish/guid/v2 v2.0.4 h1:EZiPlM4UAghqf7DU5/nLEF+iRH7ODe0AiFuYOMRvITQ=
 github.com/fogfish/guid/v2 v2.0.4/go.mod h1:KkZ5T4EE3BqWQJFZBPLSHV/tBe23Xq4KvuPfwtNtepU=
+github.com/fogfish/hnsw v0.0.3 h1:JXyEWxHlh36CnQSZfmXVZHIIao1puUzFxxAJJKCtsTc=
+github.com/fogfish/hnsw v0.0.3/go.mod h1:059/NCIjyVhODyOyWyeBIb/coJ/mPN+u4bTEBNm/GfI=
 github.com/fogfish/it v1.0.0 h1:kiwFHZcrkRLUydZoIoY0gTuMfj38trwvLo0YRyIkeG8=
 github.com/fogfish/it/v2 v2.0.1 h1:vu3kV2xzYDPHoMHMABxXeu5CoMcTfRc4gkWkzOUkRJY=
 github.com/fogfish/it/v2 v2.0.1/go.mod h1:h5FdKaEQT4sUEykiVkB8VV4jX27XabFVeWhoDZaRZtE=
