@@ -13,39 +13,63 @@ import (
 	"testing"
 
 	"github.com/fogfish/hnsw"
-	"github.com/kshard/vector"
+	"github.com/fogfish/hnsw/vector"
+	surface "github.com/kshard/vector"
 )
 
-const n = 128
+const (
+	d = 128
+	n = 1000
+)
 
-// func vZero() vector.F32 {
-// 	v := make(vector.F32, n)
-// 	for i := 0; i < n; i++ {
-// 		v[i] = 0
-// 	}
-// 	return v
-// }
+var (
+	rnd = rand.NewSource(0x211111111)
+)
 
-func vRand() vector.F32 {
-	v := make(vector.F32, n)
-	for i := 0; i < n; i++ {
-		v[i] = rand.Float32()
+func random() float32 {
+again:
+	f := float32(rnd.Int63()) / (1 << 63)
+	if f == 1 {
+		goto again // resample; this branch is taken O(never)
+	}
+	return f
+}
+
+func vRand() surface.F32 {
+	v := make(surface.F32, d)
+	for i := 0; i < d; i++ {
+		v[i] = random()
 	}
 	return v
 }
 
-func BenchmarkInsert(b *testing.B) {
-	h := hnsw.New[vector.F32](
-		vector.Euclidean(),
-		// vector.Cosine,
-		//vZero(),
-		hnsw.WithEfConstruction(400),
-		hnsw.WithM(16),
+func TestHNSW(t *testing.T) {
+	vecs := make([]surface.F32, n)
+	for i := 0; i < n; i++ {
+		vecs[i] = vRand()
+	}
+
+	index := hnsw.New(
+		vector.SurfaceVF32(surface.Euclidean()),
+		hnsw.WithRandomSource(rnd),
 	)
 
-	b.ReportAllocs()
+	for i, v := range vecs {
+		index.Insert(vector.VF32{Key: uint32(i), Vec: v})
+	}
 
-	for n := b.N; n > 0; n-- {
-		h.Insert(vRand())
+	nodes := make([]vector.VF32, 0)
+	index.ForAll(0,
+		func(rank int, vector vector.VF32, edges []vector.VF32) error {
+			nodes = append(nodes, vector)
+			return nil
+		},
+	)
+
+	for _, q := range nodes {
+		seq := index.Search(q, 4, 100)
+		if seq[0].Key != q.Key {
+			t.Errorf("Not found %v in %v", q, seq)
+		}
 	}
 }
