@@ -234,56 +234,6 @@ func drawGloveLevel(atoms *atom.Pool, h *hnsw.HNSW[kv.VF32], level int) error {
 	}
 
 	return nil
-
-	/*
-		nodes, links := glove.Visualize(atoms, h, level)
-		if len(nodes) == 0 || len(links) == 0 {
-			return fmt.Errorf("level is empty")
-		}
-
-		graph := charts.NewGraph()
-		graph.AddSeries("graph", nodes, links).
-			SetGlobalOptions(
-				charts.WithInitializationOpts(opts.Initialization{
-					Width:  "100%",
-					Height: "100%",
-				}),
-			).
-			SetSeriesOptions(
-				charts.WithGraphChartOpts(opts.GraphChart{
-					Layout:             "force",
-					Roam:               opts.Bool(true),
-					FocusNodeAdjacency: opts.Bool(true),
-					Force: &opts.GraphForce{
-						Repulsion: 100.0,
-					},
-					Categories: glove.Categories(),
-				}),
-				charts.WithEmphasisOpts(opts.Emphasis{
-					Label: &opts.Label{
-						Show:     opts.Bool(true),
-						Color:    "black",
-						Position: "left",
-					},
-				}),
-				charts.WithLineStyleOpts(opts.LineStyle{
-					Curveness: 0.3,
-					Color:     "source",
-				}),
-			)
-
-		page := components.NewPage()
-		page.SetLayout(components.PageNoneLayout)
-		page.AddCharts(
-			graph,
-		)
-
-		f, err := os.Create(gloveDrawHTML)
-		if err != nil {
-			return err
-		}
-		return page.Render(io.MultiWriter(f))
-	*/
 }
 
 func drawGloveLevel3D(atoms *atom.Pool, h *hnsw.HNSW[kv.VF32], level int) error {
@@ -313,58 +263,4 @@ func drawGloveLevel3D(atoms *atom.Pool, h *hnsw.HNSW[kv.VF32], level int) error 
 	}
 
 	return nil
-
-	/*
-	   nodes := glove.Visualize3D(atoms, h, level)
-
-	   	if len(nodes) == 0 {
-	   		return fmt.Errorf("level is empty")
-	   	}
-
-	   os.Stderr.WriteString(
-
-	   	fmt.Sprintf("==> draw level %3d\n", level),
-
-	   )
-
-	   	scatter3DColor := []string{
-	   		"#1F4B99", "#2B5E9C", "#38709E", "#48819F", "#5B92A1", "#71A3A2", "#8AB3A2", "#A7C3A2", "#C7D1A1", "#EBDDA0", "#FCD993", "#F5C57D", "#EDB269", "#E49F57", "#DA8C46", "#CF7937", "#C4662A", "#B8541E", "#AB4015", "#9E2B0E",
-	   	}
-
-	   graph := charts.NewScatter3D()
-	   graph.AddSeries("graph", nodes)
-	   graph.SetGlobalOptions(
-
-	   	charts.WithInitializationOpts(opts.Initialization{
-	   		Width:  "100%",
-	   		Height: "100%",
-	   	}),
-
-	   	charts.WithVisualMapOpts(
-	   		opts.VisualMap{
-	   			Calculable: opts.Bool(true),
-	   			Min:        -100,
-	   			Max:        100,
-	   			InRange:    &opts.VisualMapInRange{Color: scatter3DColor},
-	   		},
-	   	),
-
-	   )
-
-	   page := components.NewPage()
-	   page.SetLayout(components.PageNoneLayout)
-	   page.AddCharts(
-
-	   	graph,
-
-	   )
-
-	   f, err := os.Create(gloveDrawHTML)
-
-	   	if err != nil {
-	   		return err
-	   	}
-
-	   return page.Render(io.MultiWriter(f))
-	*/
 }
