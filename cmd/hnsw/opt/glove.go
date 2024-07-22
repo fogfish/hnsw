@@ -237,13 +237,7 @@ func drawGloveLevel(atoms *atom.Pool, h *hnsw.HNSW[kv.VF32], level int) error {
 }
 
 func drawGloveLevel3D(atoms *atom.Pool, h *hnsw.HNSW[kv.VF32], level int) error {
-	vec2text := func(v kv.VF32) string {
-		x := atoms.String(v.Key)
-		if x == "" {
-			return "ø"
-		}
-		return x
-	}
+	vec2text := func(v kv.VF32) string { return atoms.String(v.Key) }
 	nodes := viz.Visualize3D(level, h, vec2text)
 
 	if len(nodes) == 0 {
