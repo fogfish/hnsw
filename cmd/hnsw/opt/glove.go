@@ -102,7 +102,7 @@ func gloveCreate(cmd *cobra.Command, args []string) (err error) {
 
 	atoms := atom.New(atom.NewPermanentMap(db))
 
-	h := glove.New(hnswM, hnswM0, hnswEfConn)
+	h := glove.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := glove.Create(atoms, h, sysThreads, gloveDataset); err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func gloveQuery(cmd *cobra.Command, args []string) (err error) {
 
 	atoms := atom.New(atom.NewPermanentMap(db))
 
-	h := glove.New(0, 0, 0)
+	h := glove.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := h.Read(db); err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func gloveDraw(cmd *cobra.Command, args []string) (err error) {
 
 	atoms := atom.New(atom.NewPermanentMap(db))
 
-	h := glove.New(0, 0, 0)
+	h := glove.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := h.Read(db); err != nil {
 		return err
 	}

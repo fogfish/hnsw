@@ -24,14 +24,17 @@ import (
 )
 
 // New HNSW Index for given vector's dimension
-func New(m, m0, efC int) *hnsw.HNSW[vector.VF32] {
-	return hnsw.New(
-		vector.SurfaceVF32(surface.Cosine()),
+func New(m, m0, efC int, seed int64) *hnsw.HNSW[vector.VF32] {
+	opts := hnsw.With(
 		hnsw.WithEfConstruction(efC),
 		hnsw.WithM(m),
 		hnsw.WithM0(m0),
-		hnsw.WithRandomSource(rand.NewSource(0x123456789)),
 	)
+	if seed != 0 {
+		opts = hnsw.With(opts, hnsw.WithRandomSource(rand.NewSource(seed)))
+	}
+
+	return hnsw.New(vector.SurfaceVF32(surface.Cosine()), opts)
 }
 
 func scanner(atoms *atom.Pool, dataset string, f func(string, vector.VF32) error) error {

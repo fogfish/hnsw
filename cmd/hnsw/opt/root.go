@@ -27,6 +27,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&sysThreads, "threads", "t", 1, "number of threads")
+	rootCmd.PersistentFlags().Int64Var(&sysSeed, "seed", 0, "seed for random generator (default current timestamp)")
 	rootCmd.PersistentFlags().StringVarP(&hnswDataset, "index", "i", "", "path to HNSW persistent index")
 }
 
@@ -56,5 +57,6 @@ var (
 	hnswM       int
 	hnswM0      int
 	hnswDataset string
+	sysSeed     int64
 	sysThreads  int
 )

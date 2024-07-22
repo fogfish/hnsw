@@ -55,7 +55,6 @@ from http://corpus-texmex.irisa.fr.
 
 var (
 	siftDataset   string
-	siftVecSize   int
 	siftDrawHTML  string
 	siftDrawLevel int
 	siftDraw3D    bool
@@ -91,7 +90,7 @@ func siftCreate(cmd *cobra.Command, args []string) (err error) {
 		err = db.Close()
 	}()
 
-	h := sift.New(siftVecSize, hnswM, hnswM0, hnswEfConn)
+	h := sift.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := sift.Create(h, sysThreads, siftDataset); err != nil {
 		return err
 	}
@@ -132,7 +131,7 @@ func siftQuery(cmd *cobra.Command, args []string) (err error) {
 		err = db.Close()
 	}()
 
-	h := sift.New(0, 0, 0, 0)
+	h := sift.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := h.Read(db); err != nil {
 		return err
 	}
@@ -169,7 +168,7 @@ func siftDraw(cmd *cobra.Command, args []string) (err error) {
 		err = db.Close()
 	}()
 
-	h := sift.New(0, 0, 0, 0)
+	h := sift.New(hnswM, hnswM0, hnswEfConn, sysSeed)
 	if err := h.Read(db); err != nil {
 		return err
 	}
