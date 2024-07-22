@@ -215,16 +215,6 @@ func NewScatter3D(points []opts.Chart3DData) *components.Page {
 
 //------------------------------------------------------------------------------
 
-// func labelOf(atoms *atom.Pool, vector kv.VF32) string {
-// 	label := atoms.String(vector.Key)
-
-// 	if label == "" {
-// 		return "ø"
-// 	}
-
-// 	return label
-// }
-
 func colorOf(distance float32) string {
 	// 0.5 distance corresponds to orthogonal vectors
 	if distance > 0.5 {
