@@ -9,71 +9,32 @@
 package hnsw
 
 import (
-	"math"
-	"math/rand"
+	"fmt"
 	"sync"
-	"time"
 
 	"github.com/kshard/vector"
 )
 
-// Config of the HNSW
-type Config struct {
-	// size of the dynamic candidate list efConstruction.
-	efConstruction int
-
-	// Number of established connections from each node.
-	mLayerN int
-	mLayer0 int
-
-	// Normalization factor for level generation
-	mL float64
-
-	//
-	random rand.Source
-}
-
-// Config Options
-type Option func(*Config)
-
-func With(opts ...Option) Option {
-	return func(c *Config) {
-		for _, opt := range opts {
-			opt(c)
-		}
-	}
-}
-
-// Configure size of dynamic candidate list
-func WithEfConstruction(ef int) Option {
-	return func(c *Config) {
-		c.efConstruction = ef
-	}
-}
-
-// Configures number of established connections from each node.
-// M in [5 to 48] is recommended range. Small M gives better result for low
-// dimensional data. Big M is better for high dimensional data.
-// High M impacts on memory consumption
-func WithM(m int) Option {
-	return func(c *Config) {
-		c.mLayerN = m
-		c.mLayer0 = m * 2
-		c.mL = 1 / math.Log(1.0*float64(m))
-	}
-}
-
-// Configure Random Source
-func WithRandomSource(random rand.Source) Option {
-	return func(c *Config) {
-		c.random = random
-	}
-}
-
 // Slots to coordinate concurrent I/O
 const heapRWSlots = 1024
 
-// HNSW data type
+// Pointer to Node
+type Pointer = uint32
+
+// Node of Hierarchical Navigable Small World Graph
+type Node[Vector any] struct {
+	Vector      Vector
+	Connections [][]Pointer
+}
+
+// Collection of serializable Hierarchical Navigable Small World Graph Nodes
+type Nodes[Vector any] struct {
+	Rank int
+	Head Pointer
+	Heap []Node[Vector]
+}
+
+// Hierarchical Navigable Small World Graph
 type HNSW[Vector any] struct {
 	rwCore sync.RWMutex
 	rwHeap [heapRWSlots]sync.RWMutex
@@ -86,20 +47,13 @@ type HNSW[Vector any] struct {
 	level int
 }
 
-// Creates new instance of data structure
+// Creates Hierarchical Navigable Small World Graph
 func New[Vector any](
 	surface vector.Surface[Vector],
-	zero Vector,
 	opts ...Option,
 ) *HNSW[Vector] {
 	config := Config{}
-	def := With(
-		WithEfConstruction(100),
-		WithM(16),
-		WithRandomSource(rand.NewSource(time.Now().UnixNano())),
-	)
-
-	def(&config)
+	WithDefault()(&config)
 	for _, opt := range opts {
 		opt(&config)
 	}
@@ -109,32 +63,21 @@ func New[Vector any](
 		surface: surface,
 	}
 
-	node := Node[Vector]{
-		Vector:      zero,
-		Connections: make([][]Pointer, hnsw.config.mLayer0+1),
-	}
-
-	hnsw.level = len(node.Connections)
-	hnsw.heap = []Node[Vector]{node}
+	hnsw.level = 0
+	hnsw.heap = []Node[Vector]{}
 	hnsw.head = 0
 
 	return hnsw
 }
 
-// Create data structure FromNodes
+// Hierarchical Navigable Small World Graph from exported nodes
 func FromNodes[Vector any](
 	surface vector.Surface[Vector],
 	nodes Nodes[Vector],
 	opts ...Option,
 ) *HNSW[Vector] {
 	config := Config{}
-	def := With(
-		WithEfConstruction(100),
-		WithM(16),
-		WithRandomSource(rand.NewSource(time.Now().UnixNano())),
-	)
-
-	def(&config)
+	WithDefault()(&config)
 	for _, opt := range opts {
 		opt(&config)
 	}
@@ -151,6 +94,12 @@ func FromNodes[Vector any](
 	return hnsw
 }
 
+func (h *HNSW[Vector]) String() string {
+	return fmt.Sprintf("{ %d | Levels: %d  M: %d  M0: %d  mL: %f  efC: %d}",
+		len(h.heap), h.level, h.config.mLayerN, h.config.mLayer0, h.config.mL, h.config.efConstruction)
+}
+
+// Return data structure nodes as serializable container.
 func (h *HNSW[Vector]) Nodes() Nodes[Vector] {
 	return Nodes[Vector]{
 		Rank: h.level,
@@ -159,8 +108,24 @@ func (h *HNSW[Vector]) Nodes() Nodes[Vector] {
 	}
 }
 
+// Return current head (entry point)
+func (h *HNSW[Vector]) Head() Vector { return h.heap[h.head].Vector }
+
+// Return current level
 func (h *HNSW[Vector]) Level() int { return h.level }
 
+// Return current size
+func (h *HNSW[Vector]) Size() int { return len(h.heap) }
+
+// Calculate distance between two vectors using defined surface distance function.
+//
+// The function is useful to fine-tune neighbors results, filtering non relevant values.
+//
+//	for _, vector := range neighbors {
+//		if index.Distance(query, vector) < 0.2 {
+//			// do something
+//		}
+//	}
 func (h *HNSW[Vector]) Distance(a, b Vector) float32 {
 	return h.surface.Distance(a, b)
 }

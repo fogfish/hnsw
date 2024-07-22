@@ -6,32 +6,16 @@
 // https://github.com/fogfish/hnsw
 //
 
-package hnsw
-
-// Pointer to Node
-type Pointer = uint32
-
-// Graph Node
-type Node[Vector any] struct {
-	Vector      Vector
-	Connections [][]Pointer
-}
-
-// Graph Nodes
-type Nodes[Vector any] struct {
-	Rank int
-	Head Pointer
-	Heap []Node[Vector]
-}
+package types
 
 // Vertex to graph node
 type Vertex struct {
 	Distance float32
-	Addr     Pointer
+	Addr     uint32
 }
 
 // Forward Vertex Ordering
-type ordForwardVertex string
+type ordForwardVertex int
 
 func (ordForwardVertex) Compare(a, b Vertex) int {
 	if a.Distance < b.Distance {
@@ -46,7 +30,7 @@ func (ordForwardVertex) Compare(a, b Vertex) int {
 }
 
 // Reverse Vertex Ordering
-type ordReverseVertex string
+type ordReverseVertex int
 
 func (ordReverseVertex) Compare(a, b Vertex) int {
 	if a.Distance > b.Distance {
@@ -59,3 +43,8 @@ func (ordReverseVertex) Compare(a, b Vertex) int {
 
 	return 0
 }
+
+const (
+	OrdForwardVertex = ordForwardVertex(0)
+	OrdReverseVertex = ordReverseVertex(1)
+)

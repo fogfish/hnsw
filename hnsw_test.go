@@ -18,13 +18,13 @@ import (
 
 const n = 128
 
-func vZero() vector.F32 {
-	v := make(vector.F32, n)
-	for i := 0; i < n; i++ {
-		v[i] = 0
-	}
-	return v
-}
+// func vZero() vector.F32 {
+// 	v := make(vector.F32, n)
+// 	for i := 0; i < n; i++ {
+// 		v[i] = 0
+// 	}
+// 	return v
+// }
 
 func vRand() vector.F32 {
 	v := make(vector.F32, n)
@@ -38,7 +38,7 @@ func BenchmarkInsert(b *testing.B) {
 	h := hnsw.New[vector.F32](
 		vector.Euclidean(),
 		// vector.Cosine,
-		vZero(),
+		//vZero(),
 		hnsw.WithEfConstruction(400),
 		hnsw.WithM(16),
 	)

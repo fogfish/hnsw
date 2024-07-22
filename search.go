@@ -11,6 +11,7 @@ package hnsw
 import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/fogfish/hnsw/internal/pq"
+	"github.com/fogfish/hnsw/internal/types"
 )
 
 // skip the graph to "nearest" node
@@ -41,17 +42,18 @@ func (h *HNSW[Vector]) skipToNearest(level int, addr Pointer, q Vector) Pointer 
 	return addr
 }
 
-// Search "nearest" vectors on the layer
-func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq.Queue[Vertex] {
+// search "nearest" vectors on the layer
+func (h *HNSW[Vector]) searchLayer(level int, addr Pointer, q Vector, ef int) pq.Queue[types.Vertex] {
 	visited := bitset.New(uint(ef))
+	visited.Set(uint(addr))
 
-	this := Vertex{
+	this := types.Vertex{
 		Distance: h.surface.Distance(h.heap[addr].Vector, q),
 		Addr:     addr,
 	}
 
-	candidates := pq.New(ordForwardVertex(""), this)
-	setadidnac := pq.New(ordReverseVertex(""), this)
+	candidates := pq.New(types.OrdForwardVertex, this)
+	setadidnac := pq.New(types.OrdReverseVertex, this)
 
 	for candidates.Len() > 0 {
 		c := candidates.Deq()
@@ -72,7 +74,7 @@ func (h *HNSW[Vector]) SearchLayer(level int, addr Pointer, q Vector, ef int) pq
 				visited.Set(uint(e))
 
 				dist := h.surface.Distance(h.heap[e].Vector, q)
-				item := Vertex{Distance: dist, Addr: e}
+				item := types.Vertex{Distance: dist, Addr: e}
 
 				if setadidnac.Len() < ef {
 					if e != addr {
@@ -103,7 +105,7 @@ func (h *HNSW[Vector]) Search(q Vector, K int, efSearch int) []Vector {
 		head = h.skip(lvl, head, q)
 	}
 
-	w := h.SearchLayer(0, head, q, efSearch)
+	w := h.searchLayer(0, head, q, efSearch)
 	for w.Len() > K {
 		w.Deq()
 	}

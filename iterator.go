@@ -10,41 +10,87 @@ package hnsw
 
 import (
 	"fmt"
-	"strings"
+	"io"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
-type FMap[Vector any] func(level int, vector Vector, vertex []Vector) error
+// Node visitor function.
+type FMap[Vector any] func(rank int, vector Vector, edges []Vector) error
 
-func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
-	for _, node := range h.heap {
-		if len(node.Connections) > level {
+// Breadth-first search iterator over all nodes linked at the level.
+//
+// This method provides an iterator that traverses all nodes linked at a specific
+// level of the graph. By performing a full scan, the `ForAll` method ensures
+// comprehensive exploration of the graph's nodes, making it useful for
+// applications that require a complete overview of the graph structure at a given level.
+func (h *HNSW[Vector]) ForAll(level int, fmap FMap[Vector]) error {
+	var visited bitset.BitSet
 
-			vertex := make([]Vector, len(node.Connections[level]))
-			for i, addr := range node.Connections[level] {
-				vertex[i] = h.heap[addr].Vector
-			}
+	return h.forNode(level, h.head, &visited, fmap)
+}
 
-			if err := fmap(len(node.Connections), node.Vector, vertex); err != nil {
+func (h *HNSW[Vector]) forNode(level int, addr Pointer, visited *bitset.BitSet, fmap FMap[Vector]) error {
+	if visited.Test(uint(addr)) {
+		return nil
+	}
+	visited.Set(uint(addr))
+
+	node := h.heap[addr]
+
+	var edges []Vector
+	if len(node.Connections) > level {
+		edges = make([]Vector, len(node.Connections[level]))
+		for i, addr := range node.Connections[level] {
+			edges[i] = h.heap[addr].Vector
+		}
+	}
+
+	if err := fmap(len(node.Connections), node.Vector, edges); err != nil {
+		return err
+	}
+
+	if len(node.Connections) > level {
+		for _, addr := range node.Connections[level] {
+			if err := h.forNode(level, addr, visited, fmap); err != nil {
 				return err
 			}
-
 		}
 	}
 
 	return nil
 }
 
-func (h *HNSW[Vector]) Dump(sb *strings.Builder) {
+// Heap iterator over data structure
+func (h *HNSW[Vector]) FMap(level int, fmap FMap[Vector]) error {
+	for _, node := range h.heap {
+		if len(node.Connections) > level {
+			edges := make([]Vector, len(node.Connections[level]))
+			for i, addr := range node.Connections[level] {
+				edges[i] = h.heap[addr].Vector
+			}
+
+			if err := fmap(len(node.Connections), node.Vector, edges); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Dump index as text
+func (h *HNSW[Vector]) Dump(w io.Writer, f func(Vector) string) {
 	for lvl := h.level - 1; lvl >= 0; lvl-- {
-		sb.WriteString(fmt.Sprintf("\n\n==> %v\n", lvl))
+		w.Write([]byte(fmt.Sprintf("\n\n==> %v\n", lvl)))
 
 		h.FMap(lvl, func(level int, vector Vector, vertex []Vector) error {
 
-			sb.WriteString(fmt.Sprintf("%v | ", vector))
+			w.Write([]byte(fmt.Sprintf("%s | ", f(vector))))
 			for _, e := range vertex {
-				sb.WriteString(fmt.Sprintf("%v ", e))
+				w.Write([]byte(fmt.Sprintf("%s ", f(e))))
 			}
-			sb.WriteString("\n")
+			w.Write([]byte("\n"))
 
 			return nil
 		})

@@ -12,6 +12,7 @@ import (
 	"math"
 
 	"github.com/fogfish/hnsw/internal/pq"
+	"github.com/fogfish/hnsw/internal/types"
 )
 
 // generate random float from random source generator
@@ -24,18 +25,32 @@ again:
 	return f
 }
 
-// Insert new vector
+// Insert vector
 func (h *HNSW[Vector]) Insert(v Vector) {
 	//
 	// allocate new node
 	//
-
-	level := int(math.Floor(-math.Log(h.rand() * h.config.mL)))
+	level := int(math.Floor(-math.Log2(h.rand()) * h.config.mL))
 
 	addr := Pointer(0)
 	node := Node[Vector]{
 		Vector:      v,
 		Connections: make([][]Pointer, level+1),
+	}
+
+	//
+	// Empty insert
+	//
+	if len(h.heap) == 0 {
+		h.rwCore.Lock()
+		if len(h.heap) == 0 {
+			h.heap = append(h.heap, node)
+			h.level = len(node.Connections)
+			h.head = addr
+			h.rwCore.Unlock()
+			return
+		}
+		h.rwCore.Unlock()
 	}
 
 	//
@@ -61,9 +76,8 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 			M = h.config.mLayer0
 		}
 
-		w := h.SearchLayer(lvl, head, v, h.config.efConstruction)
+		w := h.searchLayer(lvl, head, v, h.config.efConstruction)
 
-		// TODO: Selector algorithm this one is Neighbor simple
 		for w.Len() > M {
 			w.Deq()
 		}
@@ -76,10 +90,6 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		}
 		node.Connections[lvl] = edges
 	}
-
-	// if w.Len() > M {
-	// 	w = h.SelectNeighboursHeuristic(lvl, v, w, M)
-	// }
 
 	//
 	// Append new node
@@ -116,22 +126,28 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 			h.rwHeap[slot].RUnlock()
 
 			if len(eedges) > M {
-				edges := pq.New(ordReverseVertex(""))
+				edges := pq.New(types.OrdReverseVertex)
 
 				for _, n := range eedges {
-					nnode := h.heap[n]
+					if n != addr {
+						nnode := h.heap[n]
 
-					dist := h.surface.Distance(enode.Vector, nnode.Vector)
-					item := Vertex{Distance: dist, Addr: n}
-					edges.Enq(item)
+						dist := h.surface.Distance(enode.Vector, nnode.Vector)
+						item := types.Vertex{Distance: dist, Addr: n}
+						edges.Enq(item)
+					}
 				}
 
-				for edges.Len() > M {
+				for edges.Len() > M-1 {
 					edges.Deq()
 				}
-				// if edges.Len() > M {
-				// 	edges = h.SelectNeighboursHeuristic(lvl, h.heap[e].Vector, edges, M)
-				// }
+
+				// Note: adjustment to original algorithms.
+				//       new connection is always created into the target node.
+				//       it reduces probability for new node to be disconnected.
+				dist := h.surface.Distance(enode.Vector, node.Vector)
+				item := types.Vertex{Distance: dist, Addr: addr}
+				edges.Enq(item)
 
 				conns := make([]Pointer, edges.Len())
 				for i := edges.Len() - 1; i >= 0; i-- {
@@ -169,50 +185,3 @@ func (h *HNSW[Vector]) addConnection(level int, src, dst Pointer) {
 	n.Connections[level] = append(c, dst)
 	h.rwHeap[slot].Unlock()
 }
-
-/*
-func (h *HNSW[Vector]) SelectNeighboursHeuristic(level int, q Vector, c pq.Queue[Vertex], m int) pq.Queue[Vertex] {
-	var inW bitset.BitSet
-
-	w := pq.New(ordForwardVertex(""))
-
-	// extend candidates by their neighbors
-	for c.Len() > 0 {
-		e := c.Deq()
-		for _, eadj := range h.heap[e.Addr].Connections[level] {
-			if !inW.Test(uint(eadj)) {
-				inW.Set(uint(eadj))
-				w.Enq(Vertex{
-					Distance: h.surface.Distance(q, h.heap[eadj].Vector),
-					Addr:     eadj,
-				})
-			}
-		}
-	}
-
-	r := pq.New(ordForwardVertex(""))
-	d := pq.New(ordForwardVertex(""))
-
-	for w.Len() > 0 {
-		if r.Len() > m {
-			break
-		}
-
-		e := w.Deq()
-		if r.Len() == 0 || r.Head().Distance > e.Distance {
-			r.Enq(e)
-		} else {
-			d.Enq(e)
-		}
-	}
-
-	for d.Len() > 0 {
-		if r.Len() > m {
-			break
-		}
-		r.Enq(d.Deq())
-	}
-
-	return r
-}
-*/
