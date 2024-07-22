@@ -5,7 +5,7 @@ go 1.21.3
 require (
 	github.com/akrylysov/pogreb v0.10.2
 	github.com/danaugrs/go-tsne/tsne v0.0.0-20220306155740-2250969e057f
-	github.com/fogfish/hnsw v0.0.0-00010101000000-000000000000
+	github.com/fogfish/hnsw v0.0.3
 	github.com/go-echarts/go-echarts/v2 v2.4.1
 	github.com/kshard/atom v0.0.3
 	github.com/kshard/fvecs v0.0.1
@@ -27,5 +27,3 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 )
-
-replace github.com/fogfish/hnsw => ../../
