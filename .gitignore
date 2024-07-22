@@ -1,6 +1,6 @@
 go.work
 go.work.sum
-cmd/sift*
+cmd/sift_*
 
 *.html
 *.fvecs

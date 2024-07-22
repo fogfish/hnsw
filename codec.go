@@ -18,10 +18,10 @@ const (
 	errCodec = faults.Type("codec failed")
 )
 
-// Getter interface abstract storage
+// Reader interface abstracts persistent key/value storage
 type Reader interface{ Get([]byte) ([]byte, error) }
 
-// Setter interface abstract storage
+// Writer interface abstract persistent key/value storage
 type Writer interface{ Put([]byte, []byte) error }
 
 type header struct {
@@ -34,7 +34,7 @@ type header struct {
 	Level          int
 }
 
-// Write index to storage
+// Write index
 func (h *HNSW[Vector]) Write(w Writer) error {
 	h.rwCore.Lock()
 	defer h.rwCore.Unlock()
@@ -100,6 +100,7 @@ func (h *HNSW[Vector]) writeNodes(w Writer) error {
 	return nil
 }
 
+// Read index
 func (h *HNSW[Vector]) Read(r Reader) error {
 	h.rwCore.Lock()
 	defer h.rwCore.Unlock()

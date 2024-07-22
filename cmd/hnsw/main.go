@@ -6,18 +6,12 @@
 // https://github.com/fogfish/hnsw
 //
 
-package hnsw
+package main
 
-import "testing"
+import (
+	"github.com/fogfish/hnsw/cmd/hnsw/opt"
+)
 
-func TestSkipToNearest(t *testing.T) {
-	// TODO:
-}
-
-func TestSkip(t *testing.T) {
-	// TODO:
-}
-
-func TestSkipLayer(t *testing.T) {
-	// TODO:
+func main() {
+	opt.Execute()
 }
