@@ -114,7 +114,7 @@ func (h *HNSW[Vector]) Head() Vector { return h.heap[h.head].Vector }
 // Return current level
 func (h *HNSW[Vector]) Level() int { return h.level }
 
-// Return current size
+// Return number of vectors in the data structure
 func (h *HNSW[Vector]) Size() int { return len(h.heap) }
 
 // Calculate distance between two vectors using defined surface distance function.
