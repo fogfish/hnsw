@@ -15,6 +15,10 @@ import (
 	"github.com/fogfish/hnsw/internal/types"
 )
 
+// anything in the range (-eps; +eps) is considered as similar item
+const minEps = -1e-6
+const maxEps = +1e-6
+
 // generate random float from random source generator
 func (h *HNSW[Vector]) rand() float64 {
 again:
@@ -87,6 +91,14 @@ func (h *HNSW[Vector]) Insert(v Vector) {
 		for i := w.Len() - 1; i >= 0; i-- {
 			candidate := w.Deq()
 			edges[i] = candidate.Addr
+
+			// Consider the update
+			if minEps < candidate.Distance && candidate.Distance < maxEps {
+				if h.surface.Equal(h.heap[candidate.Addr].Vector, v) {
+					h.heap[candidate.Addr].Vector = v
+					return
+				}
+			}
 		}
 		node.Connections[lvl] = edges
 	}
